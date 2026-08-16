@@ -1,160 +1,228 @@
-let firstPlayerNameInput = document.getElementById("firstPlayerName");
-let secondPlayerNameInput = document.getElementById("secondPlayerName");
-let cardFooter = document.getElementById("footer");
-let playersNameForm = document.getElementById("playersNameForm");
-let playButton = document.getElementById("playButton");
-let replayButton = document.getElementById("replay");
-const boardDiv = document.getElementById("game-board");
+class Player {
 
-const player = (playerName, playerSign) => {
-    let name = playerName;
-    let sign = playerSign;
+    #name;
+    #sign;
 
-    return {
-        name,
-        sign
-    };
+    constructor(name, sign) {
+        this.#name = name;
+        this.#sign = sign;
+    }
+
+    get name() {
+        return this.#name;
+    }
+
+    set name(value) {
+        this.#name = value;
+    }
+
+    get sign() {
+        return this.#sign;
+    }
+
+    set sign(value) {
+        this.#sign = value;
+    }
 }
 
-firstPlayerNameInput.addEventListener("input", (event) => {
-    playButton.disabled = !(event.target.value !== "" && secondPlayerNameInput.value !== "");
-})
+class Cell {
 
-secondPlayerNameInput.addEventListener("input", (event) => {
-    playButton.disabled = !(event.target.value !== "" && firstPlayerNameInput.value !== "");
-})
+    #content;
 
+    get content() {
+        return this.#content;
+    }
 
-playButton.addEventListener("click", () => {
-    playersNameForm.hidden = true;
-    screen = screenController();
-    screen.updateScreen();
-    boardDiv.addEventListener("click", screen.clickHandlerBoard);
-})
+    set content(value) {
+        if (!this.isEmpty()) {
+            throw new Error("Cell is not empty");
+        }
 
-replayButton.addEventListener("click", () => {
-    location.reload();
-})
+        this.#content = value;
+    }
 
-
-
-const cell = () => {
-    let content = undefined;
-
-    const getContent = () => content;
-    const isEmpty = () => !content;
-    const addContent = (sign) => {
-        if (!isEmpty()) return;
-
-        content = sign;
-    };
-
-    return {
-        getContent,
-        addContent,
-        isEmpty
-    };
+    isEmpty = () => !this.content;
 }
 
-const gameBoard = (() => {
-    const board = [
-        [cell(), cell(), cell()],
-        [cell(), cell(), cell()],
-        [cell(), cell(), cell()]
+class GameBoard {
+
+    #board = [
+        [new Cell(), new Cell(), new Cell()],
+        [new Cell(), new Cell(), new Cell()],
+        [new Cell(), new Cell(), new Cell()]
     ];
 
-    const checkInput = (input) => input && parseInt(input) >= 0 && parseInt(input) <= 2;
-
-    const getCell = (row, column) => {
-        if (!checkInput(row)) return;
-        if (!checkInput(column)) return;
-
-        return board[row][column];
-    };
-    const addSignToCell = (row, column, sign) => {
-        if (!checkInput(row)) return;
-        if (!checkInput(column)) return;
-
-        let cell = board[row][column];
-        if (!cell.isEmpty()) return;
-
-        cell.addContent(sign);
-    };
-
-    const isFull = () => { return board.flat().filter((cell) => cell.isEmpty()).length === 0; };
-
-    const diagonalsMatch = (sign) => {
-        return [0, 1, 2].every(cell => board[cell][cell].getContent() === sign) ||
-            [0, 1, 2].every(cell => board[cell][2 - cell].getContent() === sign);
+    get board() {
+        return this.#board;
     }
-    const rowsMatch = (sign) => board.some(row => row.every(cell => cell.getContent() === sign));
-    const columnsMatch = (sign) => [0, 1, 2].some(columnIndex => [0, 1, 2].every(rowIndex => board[rowIndex][columnIndex].getContent() === sign));
-    const match = (sign) => diagonalsMatch(sign) || rowsMatch(sign) || columnsMatch(sign);
 
-    return {
-        board,
-        getCell,
-        addSignToCell,
-        isFull,
-        match
+    checkInput = (input) => input && parseInt(input) >= 0 && parseInt(input) <= 2;
+
+    getCell = (row, column) => {
+        if (!this.checkInput(row)) {
+            throw new Error("Invalid row index");
+        }
+
+        if (!this.checkInput(column)) {
+            throw new Error("Invalid column index");
+        }
+
+        return this.board[row][column];
     };
-})();
 
-const gameController = (firstPlayer, secondPlayer) => {
-    const players = [firstPlayer, secondPlayer];
-    let activePlayer = players[0];
-    let continueGame;
+    addSignToCell = (row, column, sign) => {
+        if (!this.checkInput(row)) {
+            throw new Error("Invalid row index");
+        }
 
-    const switchPlayerTurn = () => {
-        activePlayer = activePlayer === players[0] ? players[1] : players[0];
+        if (!this.checkInput(column)) {
+            throw new Error("Invalid column index");
+        }
+
+        let cell = this.board[row][column];
+        if (!cell.isEmpty()) {
+            throw new Error(`Cell[${row}][${column}] is not empty`);
+        }
+
+        cell.content = sign;
     };
-    const getActivePlayer = () => activePlayer;
 
-    const playRound = (row, column) => {
-        let cell = gameBoard.getCell(row, column);
-        if (!cell.isEmpty()) return;
+    isFull = () => { return this.board.flat().filter((cell) => cell.isEmpty()).length === 0; };
 
-        gameBoard.addSignToCell(row, column, getActivePlayer().sign);
+    diagonalsMatch = (sign) => {
+        return [0, 1, 2].every(cell => this.board[cell][cell].content === sign) ||
+            [0, 1, 2].every(cell => this.board[cell][2 - cell].content === sign);
+    }
 
-        if (gameBoard.match(getActivePlayer().sign) || gameBoard.isFull()) {
-            continueGame = false;
+    rowsMatch = (sign) => this.board.some(row => row.every(cell => cell.content === sign));
+
+    columnsMatch = (sign) => [0, 1, 2].some(columnIndex => [0, 1, 2].every(rowIndex => this.board[rowIndex][columnIndex].content === sign));
+
+    match = (sign) => this.diagonalsMatch(sign) || this.rowsMatch(sign) || this.columnsMatch(sign);
+}
+
+class GameController {
+
+    #firstPlayer;
+    #secondPlayer;
+    #players;
+    #activePlayer;
+    #continueGame;
+    #gameBoard;
+
+    constructor(firstPlayer, secondPlayer, gameBoard) {
+        if (!firstPlayer instanceof Player || !secondPlayer instanceof Player) {
+            throw new Error("Invalid player");
+        }
+
+        if (!gameBoard instanceof GameBoard) {
+            throw new Error("Invalid gameBoard");
+        }
+
+        this.#firstPlayer = firstPlayer;
+        this.#secondPlayer = secondPlayer;
+        this.#players = [firstPlayer, secondPlayer];
+        this.#activePlayer = this.#players[0]
+        this.#gameBoard = gameBoard;
+    }
+
+    get players() {
+        return this.#players;
+    }
+
+    get activePlayer() {
+        return this.#activePlayer;
+    }
+
+    get continueGame() {
+        return this.#continueGame;
+    }
+
+    set continueGame(value) {
+        if (value !== true && value !== false) {
+            throw new Error("Invalid continueGame value");
+        }
+        this.#continueGame = value;
+    }
+
+    get gameBoard() {
+        return this.#gameBoard;
+    }
+
+    switchPlayerTurn = () => {
+        this.#activePlayer = this.activePlayer === this.players[0] ? this.players[1] : this.players[0];
+    };
+
+    playRound = (row, column) => {
+        let cell = this.gameBoard.getCell(row, column);
+        if (!cell.isEmpty()) {
+            throw new Error(`Cell [${row}][${column}] is not empty`);
+        }
+
+        this.gameBoard.addSignToCell(row, column, this.activePlayer.sign);
+
+        if (this.gameBoard.match(this.activePlayer.sign) || this.gameBoard.isFull()) {
+            this.continueGame = false;
         } else {
-            switchPlayerTurn();
+            this.switchPlayerTurn();
         }
     };
 
-    const isGameOver = () => continueGame === false;
+    isGameOver = () => this.continueGame === false;
+}
 
-    return {
-        isGameOver,
-        getActivePlayer,
-        playRound,
-    };
-};
+class ScreenController {
 
-const screenController = ()=> {
-    const firstPlayer = player(firstPlayerNameInput.value, 'X');
-    const secondPlayer = player(secondPlayerNameInput.value, 'O');
-    const playerTurnDiv = document.querySelector("#turn");
-    const boardDiv = document.querySelector("#game-board");
-    let game = gameController(firstPlayer, secondPlayer);
+    #firstPlayer;
+    #secondPlayer;
+    #gameBoard;
+    #gameController;
+    #playerTurnDiv;
+    #boardDiv;
+    #cardFooter;
 
-    const updateScreen = () => {
+    constructor() {
+        this.#firstPlayer = new Player(firstPlayerNameInput.value, 'X');
+        this.#secondPlayer = new Player(secondPlayerNameInput.value, 'O');
+        this.#gameBoard = new GameBoard();
+        this.#gameController = new GameController(this.#firstPlayer, this.#secondPlayer, this.#gameBoard);
+        this.#playerTurnDiv = document.querySelector("#turn");
+        this.#boardDiv = document.querySelector("#game-board");
+        this.#cardFooter = document.getElementById("footer");
+    }
+
+    get gameBoard() {
+        return this.#gameBoard;
+    }
+
+    get gameController() {
+        return this.#gameController;
+    }
+
+    get playerTurnDiv() {
+        return this.#playerTurnDiv;
+    }
+
+    get cardFooter() {
+        return this.#cardFooter;
+    }
+
+    updateScreen = () => {
+        const board = this.gameBoard.board;
+        const activePlayer = this.gameController.activePlayer;
+
         boardDiv.textContent = '';
 
-        const board = gameBoard.board;
-        const activePlayer = game.getActivePlayer();
-
-        if (gameBoard.match(activePlayer.sign)) {
-            playerTurnDiv.textContent = `The winner : ${activePlayer.name}  !`;
-            cardFooter.hidden = false;
+        if (this.gameBoard.match(activePlayer.sign)) {
+            this.playerTurnDiv.textContent = `The winner : ${activePlayer.name}  !`;
+            this.cardFooter.hidden = false;
             replayButton.focus();
-        } else if (gameBoard.isFull()) {
-            playerTurnDiv.textContent = 'Draw : The board is full !';
-            cardFooter.hidden = false;
+        } else if (this.gameBoard.isFull()) {
+            this.playerTurnDiv.textContent = 'Draw : The board is full !';
+            this.cardFooter.hidden = false;
             replayButton.focus();
         } else {
-            playerTurnDiv.textContent = `${activePlayer.name}'s turn...`;
+            this.playerTurnDiv.textContent = `${activePlayer.name}'s turn...`;
         }
 
         board.forEach((row, rowIndex) => {
@@ -170,7 +238,7 @@ const screenController = ()=> {
 
                 cellButton.dataset.row = `${rowIndex}`;
                 cellButton.dataset.column = `${columnIndex}`;
-                cellButton.textContent = cell.getContent();
+                cellButton.textContent = cell.content;
 
                 if (cell.isEmpty()) {
                     cellButton.classList.add("btn-outline-primary");
@@ -185,19 +253,47 @@ const screenController = ()=> {
         });
     };
 
-    const clickHandlerBoard = (e)  => {
+    clickHandlerBoard = (e) => {
         const selectedRow = e.target.dataset.row;
         const selectedColumn = e.target.dataset.column;
 
-        if (!selectedRow) return;
-        if (!selectedColumn) return;
 
-        if (!game.isGameOver()) game.playRound(selectedRow, selectedColumn);
-        updateScreen();
+        if (!selectedRow) {
+            throw new Error("Invalid row index");
+        }
+
+        if (!selectedColumn) {
+            throw new Error("Invalid column index");
+        }
+
+        if (!this.gameController.isGameOver()) this.gameController.playRound(selectedRow, selectedColumn);
+        this.updateScreen();
     }
+}
 
-    return {
-        updateScreen,
-        clickHandlerBoard
-    };
-};
+let firstPlayerNameInput = document.getElementById("firstPlayerName");
+let secondPlayerNameInput = document.getElementById("secondPlayerName");
+let playersNameForm = document.getElementById("playersNameForm");
+let playButton = document.getElementById("playButton");
+let replayButton = document.getElementById("replay");
+const boardDiv = document.getElementById("game-board");
+
+firstPlayerNameInput.addEventListener("input", (event) => {
+    playButton.disabled = !(event.target.value !== "" && secondPlayerNameInput.value !== "");
+})
+
+secondPlayerNameInput.addEventListener("input", (event) => {
+    playButton.disabled = !(event.target.value !== "" && firstPlayerNameInput.value !== "");
+})
+
+
+playButton.addEventListener("click", () => {
+    playersNameForm.hidden = true;
+    let screen = new ScreenController();
+    screen.updateScreen();
+    boardDiv.addEventListener("click", screen.clickHandlerBoard);
+})
+
+replayButton.addEventListener("click", () => {
+    location.reload();
+})
